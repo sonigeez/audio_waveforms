@@ -12,7 +12,7 @@ class RecorderController extends ChangeNotifier {
   final List<double> _waveData = [];
 
   /// At which rate waveform needs to be updated
-  Duration updateFrequency = const Duration(milliseconds: 100);
+  Duration updateFrequency = const Duration(milliseconds: 16);
 
   AndroidEncoder androidEncoder = AndroidEncoder.aac;
 

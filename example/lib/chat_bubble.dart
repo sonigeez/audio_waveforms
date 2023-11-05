@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
+import 'package:audio_waveforms_example/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -79,6 +82,13 @@ class _WaveBubbleState extends State<WaveBubble> {
     liveWaveColor: Colors.white,
     spacing: 6,
   );
+  double pulsatingValue = 0;
+
+  int getRandome(int max) {
+    var random = new Random();
+    var value = random.nextInt(max);
+    return value;
+  }
 
   @override
   void initState() {
@@ -87,6 +97,19 @@ class _WaveBubbleState extends State<WaveBubble> {
     _preparePlayer();
     playerStateSubscription = controller.onPlayerStateChanged.listen((_) {
       setState(() {});
+    });
+    controller.onCurrentDurationChanged.listen((progress) {
+      setState(() {
+        var value = controller.waveformData[
+            (((controller.waveformData.length - 2) *
+                    progress /
+                    controller.maxDuration)
+                .round())];
+        print(value);
+        pulsatingValue = value * 4.5;
+
+        // log('pulsatingValue: $pulsatingValue');
+      });
     });
   }
 
@@ -103,9 +126,23 @@ class _WaveBubbleState extends State<WaveBubble> {
       return;
     }
     // Prepare player with extracting waveform if index is even.
-    controller.preparePlayer(
-      path: widget.path ?? file!.path,
-      shouldExtractWaveform: widget.index?.isEven ?? true,
+    // controller.preparePlayer(
+    //   path: widget.path ?? file!.path,
+    //   shouldExtractWaveform: widget.index?.isEven ?? true,
+    // );
+    List urls = [
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/8ce44188-1afd-4e37-ba8a-c380042e9455-1699025454438-audio.x-wav",
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/dab18419-8030-4fb7-be0c-5b6df56c2afa-1699030144670-audio.x-wav",
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/b93c20a3-9290-45b9-89a3-5c91c0532340-1699018806589-audio.x-wav",
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/b93c20a3-9290-45b9-89a3-5c91c0532340-1699018806589-audio.x-wav",
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/b93c20a3-9290-45b9-89a3-5c91c0532340-1699018806589-audio.x-wav",
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/b93c20a3-9290-45b9-89a3-5c91c0532340-1699018806589-audio.x-wav",
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/b93c20a3-9290-45b9-89a3-5c91c0532340-1699018806589-audio.x-wav",
+      "https://storage.googleapis.com/perpetuum-d997d.appspot.com/audio/b93c20a3-9290-45b9-89a3-5c91c0532340-1699018806589-audio.x-wav",
+    ];
+    controller.preparePlayerUrl(
+      url: urls[getRandome(urls.length)],
+      shouldExtractWaveform: true,
     );
     // Extracting waveform separately if index is odd.
     if (widget.index?.isOdd ?? false) {
@@ -141,20 +178,23 @@ class _WaveBubbleState extends State<WaveBubble> {
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                color: widget.isSender
-                    ? const Color(0xFF276bfd)
-                    : const Color(0xFF343145),
+                color: widget.isSender ? Colors.black : const Color(0xFF343145),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  SqAvatarWidget(
+                    pulsatingValue: pulsatingValue,
+                    color: Colors.purple,
+                    size: 70,
+                  ),
                   if (!controller.playerState.isStopped)
                     IconButton(
                       onPressed: () async {
                         controller.playerState.isPlaying
                             ? await controller.pausePlayer()
                             : await controller.startPlayer(
-                                finishMode: FinishMode.loop,
+                                finishMode: FinishMode.pause,
                               );
                       },
                       icon: Icon(
@@ -166,14 +206,14 @@ class _WaveBubbleState extends State<WaveBubble> {
                       splashColor: Colors.transparent,
                       highlightColor: Colors.transparent,
                     ),
-                  AudioFileWaveforms(
-                    size: Size(MediaQuery.of(context).size.width / 2, 70),
-                    playerController: controller,
-                    waveformType: widget.index?.isOdd ?? false
-                        ? WaveformType.fitWidth
-                        : WaveformType.long,
-                    playerWaveStyle: playerWaveStyle,
-                  ),
+                  // AudioFileWaveforms(
+                  //   size: Size(MediaQuery.of(context).size.width / 2, 70),
+                  //   playerController: controller,
+                  //   waveformType: widget.index?.isOdd ?? false
+                  //       ? WaveformType.fitWidth
+                  //       : WaveformType.long,
+                  //   playerWaveStyle: playerWaveStyle,
+                  // ),
                   if (widget.isSender) const SizedBox(width: 10),
                 ],
               ),

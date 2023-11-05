@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:audio_waveforms/src/base/constants.dart';
@@ -7,6 +8,7 @@ import 'package:audio_waveforms/src/base/platform_streams.dart';
 import 'package:audio_waveforms/src/base/player_identifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 part '../base/audio_waveforms_interface.dart';
 
@@ -144,6 +146,48 @@ class PlayerController extends ChangeNotifier {
       );
     }
     notifyListeners();
+  }
+
+  Future<void> preparePlayerUrl({
+    required String url,
+    double? volume,
+    bool shouldExtractWaveform = true,
+    int noOfSamples = 100,
+  }) async {
+    print('File creating');
+
+    String fileName = url.split('/').last;
+    String dir = (await getApplicationDocumentsDirectory()).path;
+    File file = File('$dir/$fileName');
+
+    if (file.existsSync()) {
+      print('File exists');
+      await preparePlayer(
+        path: file.path,
+        volume: volume,
+        shouldExtractWaveform: shouldExtractWaveform,
+        noOfSamples: noOfSamples,
+      );
+    } else {
+      print('File not exists');
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final byteData = response.bodyBytes;
+        final buffer = byteData.buffer;
+        await file.create(recursive: true);
+        await file.writeAsBytes(
+          buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+        );
+        await preparePlayer(
+          path: file.path,
+          volume: volume,
+          shouldExtractWaveform: shouldExtractWaveform,
+          noOfSamples: noOfSamples,
+        );
+      } else {
+        throw Exception('Failed to load audio');
+      }
+    }
   }
 
   /// Extracts waveform data from provided audio file path.

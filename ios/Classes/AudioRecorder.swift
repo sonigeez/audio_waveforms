@@ -8,8 +8,11 @@ public class AudioRecorder: NSObject, AVAudioRecorderDelegate{
     var useLegacyNormalization: Bool = false
     var audioUrl: URL?
     var recordedDuration: CMTime = CMTime.zero
-    
-    public func startRecording(_ result: @escaping FlutterResult,_ path: String?,_ encoder : Int?,_ sampleRate : Int?,_ bitRate : Int?,_ fileNameFormat: String, _ useLegacy: Bool?){
+    var maxAmplitude: Float = 0.0
+    var audioEngine: AVAudioEngine?
+
+
+    public func startRecording(_ result: @escaping FlutterResult, _ path: String?, _ encoder: Int?, _ sampleRate: Int?, _ bitRate: Int?, _ fileNameFormat: String, _ useLegacy: Bool?) {
         useLegacyNormalization = useLegacy ?? false
         let settings = [
             AVFormatIDKey: getEncoder(encoder ?? 0),
@@ -24,43 +27,84 @@ public class AudioRecorder: NSObject, AVAudioRecorderDelegate{
             AVNumberOfChannelsKey: 1,
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
-        
+
         let options: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetooth]
-        if (path == nil) {
+        if path == nil {
             let directory = NSTemporaryDirectory()
             let date = Date()
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = fileNameFormat
             let fileName = dateFormatter.string(from: date) + ".m4a"
-            
-            self.path = NSURL.fileURL(withPathComponents: [directory, fileName])?.absoluteString
+
+            self.audioUrl = NSURL.fileURL(withPathComponents: [directory, fileName])
         } else {
-            self.path = path
+            self.audioUrl = URL(fileURLWithPath: path!)
         }
-        
-        
+
         do {
-            try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playAndRecord, options: options)
+            try AVAudioSession.sharedInstance().setCategory(.playAndRecord, options: options)
             try AVAudioSession.sharedInstance().setActive(true)
-            
-            audioUrl = URL(fileURLWithPath: self.path!)
-            
-            if(audioUrl == nil){
-                result(FlutterError(code: Constants.audioWaveforms, message: "Failed to initialise file URL", details: nil))
+
+            if let audioUrl = self.audioUrl {
+                audioRecorder = try AVAudioRecorder(url: audioUrl, settings: bitRate != nil ? settingsWithBitrate as [String : Any] : settings as [String : Any])
+                audioRecorder?.delegate = self
+                audioRecorder?.isMeteringEnabled = true
+                audioRecorder?.record()
+            } else {
+                result(FlutterError(code: "audioWaveforms", message: "Failed to initialize file URL", details: nil))
+                return
             }
-            audioRecorder = try AVAudioRecorder(url: audioUrl!, settings: bitRate != nil ? settingsWithBitrate as [String : Any] : settings as [String : Any])
-            
-            audioRecorder?.delegate = self
-            audioRecorder?.isMeteringEnabled = true
-            audioRecorder?.record()
+
+            audioEngine = AVAudioEngine()
+            let inputNode = audioEngine?.inputNode
+            let recordingFormat = inputNode?.outputFormat(forBus: 0)
+            inputNode?.installTap(onBus: 0, bufferSize: 735, format: recordingFormat) { [weak self] (buffer, time) in
+                guard let channelData = buffer.floatChannelData?[0] else { return }
+                   // Debug: Print the first 10 samples of channelData
+                   print(Array(UnsafeBufferPointer(start: channelData, count: 10)))
+                   
+                   // Alternative: Compute max amplitude manually
+                   var maxVal: Float = 0.0
+                   for i in 0..<buffer.frameLength {
+                       let sample = channelData[Int(i)]
+                       maxVal = max(maxVal, abs(sample))
+                   }
+                   
+                   // Scale the amplitude to match Android's getMaxAmplitude() range (0 - 32767)
+                   let scaledMaxAmplitude = maxVal * 32767.0
+                   
+                   // Update the maxAmplitude property
+                   self?.maxAmplitude = scaledMaxAmplitude
+                
+//                        // Calculate the max amplitude
+//                        var maxVal: Float = 0.0
+//                        vDSP_maxv(channelData, 1, &maxVal, vDSP_Length(buffer.frameLength))
+//
+//                        // Scale the amplitude to match Android's getMaxAmplitude() range (0 - 32767)
+//                        let scaledMaxAmplitude = maxVal * 32767.0
+//
+//                        // Update the maxAmplitude property
+//                        self?.maxAmplitude = scaledMaxAmplitude
+                    }
+            audioEngine?.prepare()
+            try audioEngine?.start()
             result(true)
         } catch {
-            result(FlutterError(code: Constants.audioWaveforms, message: "Failed to start recording", details: nil))
+            result(FlutterError(code: "audioWaveforms", message: "Failed to start recording", details: nil))
         }
     }
     
     public func stopRecording(_ result: @escaping FlutterResult) {
+        // Stop AVAudioRecorder
         audioRecorder?.stop()
+        audioRecorder = nil  // Release AVAudioRecorder
+
+        // Stop AVAudioEngine
+        audioEngine?.stop()
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        audioEngine = nil  // Release AVAudioEngine
+
+        // Your existing code for processing the recorded audio file
         if(audioUrl != nil) {
             let asset = AVURLAsset(url:  audioUrl!)
             if #available(iOS 15.0, *) {
@@ -80,30 +124,54 @@ public class AudioRecorder: NSObject, AVAudioRecorderDelegate{
         } else {
             result([path,CMTime.zero.seconds.description])
         }
-        audioRecorder = nil
     }
-    
+        
+
     public func pauseRecording(_ result: @escaping FlutterResult) {
+        // Pause AVAudioRecorder
         audioRecorder?.pause()
+
+        // Pause AVAudioEngine (no built-in pause, so we stop it)
+        audioEngine?.stop()
+        
         result(false)
     }
-    
+
     public func resumeRecording(_ result: @escaping FlutterResult) {
+        // Resume AVAudioRecorder
         audioRecorder?.record()
-        result(true)
-    }
-    
-    public func getDecibel(_ result: @escaping FlutterResult) {
-        audioRecorder?.updateMeters()
-        if(useLegacyNormalization){
-            let amp = audioRecorder?.averagePower(forChannel: 0) ?? 0.0
-            result(amp)
-        } else {
-            let amp = audioRecorder?.peakPower(forChannel: 0) ?? 0.0
-            let linear = pow(10, amp / 20);
-            result(linear)
+
+        // Resume AVAudioEngine (restart it)
+        do {
+            try audioEngine?.start()
+            result(true)
+        } catch {
+            result(FlutterError(code: "audioWaveforms", message: "Failed to resume recording", details: nil))
         }
     }
+    
+    // public func getDecibel(_ result: @escaping FlutterResult) {
+    //     audioRecorder?.updateMeters()
+    //     if(useLegacyNormalization){
+    //         let amp = audioRecorder?.averagePower(forChannel: 0) ?? 0.0
+    //         result(amp)
+    //     } else {
+    //         let amp = audioRecorder?.peakPower(forChannel: 0) ?? 0.0
+    //         let linear = pow(10, amp / 20);
+    //         result(linear)
+    //     }
+    // }
+
+      public func getDecibel(_ result: @escaping FlutterResult) {
+            if useLegacyNormalization {
+                let db = 20 * log10(maxAmplitude)
+                result(db)
+            } else {
+                result(maxAmplitude)
+            }
+            maxAmplitude = 0.0  // Reset maxAmplitude for the next call
+        }
+
     
     public func checkHasPermission(_ result: @escaping FlutterResult){
         switch AVAudioSession.sharedInstance().recordPermission{

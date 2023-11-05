@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:developer' as dev;
 import 'dart:io';
+import 'dart:math';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:audio_waveforms_example/chat_bubble.dart';
@@ -133,27 +136,12 @@ class _HomeState extends State<Home> {
                   SafeArea(
                     child: Row(
                       children: [
+                        Spacer(),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: isRecording
-                              ? AudioWaveforms(
-                                  enableGesture: true,
-                                  size: Size(
-                                      MediaQuery.of(context).size.width / 2,
-                                      50),
+                              ? RecordPulsatingWidget(
                                   recorderController: recorderController,
-                                  waveStyle: const WaveStyle(
-                                    waveColor: Colors.white,
-                                    extendWaveform: true,
-                                    showMiddleLine: false,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    color: const Color(0xFF1E1B26),
-                                  ),
-                                  padding: const EdgeInsets.only(left: 18),
-                                  margin: const EdgeInsets.symmetric(
-                                      horizontal: 15),
                                 )
                               : Container(
                                   width:
@@ -233,5 +221,148 @@ class _HomeState extends State<Home> {
 
   void _refreshWave() {
     if (isRecording) recorderController.refresh();
+  }
+}
+
+class RecordPulsatingWidget extends StatefulWidget {
+  const RecordPulsatingWidget({Key? key, required this.recorderController})
+      : super(key: key);
+  final RecorderController recorderController;
+
+  @override
+  State<RecordPulsatingWidget> createState() => _RecordPulsatingWidgetState();
+}
+
+class _RecordPulsatingWidgetState extends State<RecordPulsatingWidget> {
+  late Timer _timer;
+  double pulsatingValue = 0;
+
+  @override
+  void initState() {
+    _timer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+      if (mounted && widget.recorderController.waveData.isNotEmpty) {
+        setState(() {
+          var value = widget.recorderController.waveData.last;
+          if (value == 0) return;
+          dev.log(value.toString());
+          pulsatingValue = value;
+        });
+      }
+    });
+
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SqAvatarWidget(
+      color: Colors.yellow,
+      size: 100,
+      pulsatingValue: pulsatingValue,
+    );
+  }
+}
+
+class SqAvatarWidget extends StatelessWidget {
+  const SqAvatarWidget({
+    Key? key,
+    required this.color,
+    required this.size,
+    this.pulsatingValue = 0,
+    this.progress = 0,
+    this.progressColor = Colors.green,
+    Color? backgroundColor,
+  })  : backgroundColor = backgroundColor ?? color,
+        super(key: key);
+  final Color color;
+  final double size;
+  final double pulsatingValue;
+  final double progress;
+  final Color progressColor;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    double scale = 1.0 + (pulsatingValue * 0.35);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        AnimatedScale(
+          duration: const Duration(milliseconds: 100),
+          scale: scale,
+          child: CustomPaint(
+            painter: SquirclePainter(color: const Color(0xffececec)),
+            size: Size(size, size),
+          ),
+        ),
+        CustomPaint(
+          size: Size(size, size),
+          painter: SquirclePainter(
+            color: color,
+            progress: progress,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class SquirclePainter extends CustomPainter {
+  final Color color;
+  final double progress;
+  SquirclePainter({required this.color, this.progress = 0});
+
+  Offset superellipsePoint(double angle, double width, double height) {
+    const n = 4.0;
+    final cosA = cos(angle);
+    final sinA = sin(angle);
+
+    final x = pow((cosA).abs(), 2.0 / n) * width * cosA.sign / 2;
+    final y = pow((sinA).abs(), 2.0 / n) * height * sinA.sign / 2;
+
+    return Offset(x, y);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint progressPaint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    const step = pi / 360;
+    final Path progressPath = Path();
+    final Path path = Path();
+
+    final start = superellipsePoint(pi / 2, size.width, size.height);
+    path.moveTo(center.dx + start.dx, center.dy + start.dy);
+    progressPath.moveTo(center.dx + start.dx, center.dy + start.dy);
+
+    for (double angle = pi / 2; angle < (pi / 2) + (2 * pi); angle += step) {
+      final point = superellipsePoint(angle, size.width, size.height);
+      path.lineTo(center.dx + point.dx, center.dy + point.dy);
+    }
+
+    path.close();
+    canvas.drawPath(path, paint);
+    canvas.drawPath(progressPath, progressPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }
