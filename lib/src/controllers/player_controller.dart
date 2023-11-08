@@ -326,6 +326,10 @@ class PlayerController extends ChangeNotifier {
     PlatformStreams.instance.playerControllerFactory.remove(this);
   }
 
+  void stopAllAudio() async {
+    await AudioWaveformsInterface.instance.stopAllPlayers();
+  }
+
   /// Sets [_shouldRefresh] flag with provided boolean parameter.
   void _setRefresh(bool refresh) {
     _shouldRefresh = refresh;
