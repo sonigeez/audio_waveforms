@@ -343,14 +343,15 @@ class PlayerController extends ChangeNotifier {
 
   // TODO: Replace this with enhanced enum when we drop support for dart 2.17 earlier versions
   int _getFrequency() {
-    switch (updateFrequency) {
-      case UpdateFrequency.high:
-        return 2;
-      case UpdateFrequency.medium:
-        return 1;
-      case UpdateFrequency.low:
-        return 0;
-    }
+    return 2;
+    // switch (updateFrequency) {
+    //   case UpdateFrequency.high:
+    //     return 2;
+    //   case UpdateFrequency.medium:
+    //     return 1;
+    //   case UpdateFrequency.low:
+    //     return 0;
+    // }
   }
 
   @override
