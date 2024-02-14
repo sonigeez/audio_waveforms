@@ -154,14 +154,12 @@ class PlayerController extends ChangeNotifier {
     bool shouldExtractWaveform = true,
     int noOfSamples = 100,
   }) async {
-    print('File creating');
 
     String fileName = url.split('/').last;
     String dir = (await getApplicationDocumentsDirectory()).path;
     File file = File('$dir/$fileName');
 
     if (file.existsSync()) {
-      print('File exists');
       await preparePlayer(
         path: file.path,
         volume: volume,
@@ -169,7 +167,6 @@ class PlayerController extends ChangeNotifier {
         noOfSamples: noOfSamples,
       );
     } else {
-      print('File not exists');
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final byteData = response.bodyBytes;
