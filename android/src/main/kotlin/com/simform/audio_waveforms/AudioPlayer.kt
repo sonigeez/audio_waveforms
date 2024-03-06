@@ -132,7 +132,6 @@ class AudioPlayer(
         }
         isPlayerPrepared = false
         player?.stop()
-        player?.release()
         result.success(true)
     }
 
@@ -147,11 +146,33 @@ class AudioPlayer(
         }
 
     }
+    fun release(result: MethodChannel.Result) {
+        try {
+            player?.release()
+            result.success(true)
+        } catch (e: Exception) {
+            result.error(Constants.LOG_TAG, "Failed to release player resource", e.toString())
+        }
+
+    }
 
     fun setVolume(volume: Float?, result: MethodChannel.Result) {
         try {
             if (volume != null) {
                 player?.volume = volume
+                result.success(true)
+            } else {
+                result.success(false)
+            }
+        } catch (e: Exception) {
+            result.success(false)
+        }
+    }
+
+    fun setRate(rate: Float?, result: MethodChannel.Result) {
+        try {
+            if (rate != null) {
+                player?.setPlaybackSpeed(rate)
                 result.success(true)
             } else {
                 result.success(false)

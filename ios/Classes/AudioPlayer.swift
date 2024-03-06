@@ -31,8 +31,10 @@ class AudioPlayer: NSObject, AVAudioPlayerDelegate {
             do {
                 player = try AVAudioPlayer(contentsOf: audioUrl!)
             } catch {
-                result(FlutterError(code: Constants.audioWaveforms, message: "Failed to prepare player", details: nil))
+                result(FlutterError(code: Constants.audioWaveforms, message: "Failed to prepare player", details: error.localizedDescription))
             }
+            player?.enableRate = true
+            player?.rate = 1.0
             player?.prepareToPlay()
             player?.volume = Float(volume ?? 1.0)
             result(true)
@@ -86,8 +88,12 @@ class AudioPlayer: NSObject, AVAudioPlayerDelegate {
     func stopPlayer(result: @escaping FlutterResult) {
         stopListening()
         player?.stop()
-        player = nil
         timer = nil
+        result(true)
+    }
+    
+    func release(result: @escaping FlutterResult) {
+        player = nil
         result(true)
     }
     
@@ -103,6 +109,11 @@ class AudioPlayer: NSObject, AVAudioPlayerDelegate {
     
     func setVolume(_ volume: Double?, _ result: @escaping FlutterResult) {
         player?.volume = Float(volume ?? 1.0)
+        result(true)
+    }
+    
+    func setRate(_ rate: Double?, _ result: @escaping FlutterResult) {
+        player?.rate = Float(rate ?? 1.0);
         result(true)
     }
     

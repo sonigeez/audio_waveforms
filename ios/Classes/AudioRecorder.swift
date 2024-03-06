@@ -29,14 +29,13 @@ public class AudioRecorder: NSObject, AVAudioRecorderDelegate{
         ]
 
         let options: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetooth]
-        if path == nil {
-            let directory = NSTemporaryDirectory()
+        if (path == nil) {
+            let documentDirectory = getDocumentDirectory(result)
             let date = Date()
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = fileNameFormat
             let fileName = dateFormatter.string(from: date) + ".m4a"
-
-            self.audioUrl = NSURL.fileURL(withPathComponents: [directory, fileName])
+            self.path = "\(documentDirectory)/\(fileName)"
         } else {
             self.audioUrl = URL(fileURLWithPath: path!)
         }
@@ -90,7 +89,7 @@ public class AudioRecorder: NSObject, AVAudioRecorderDelegate{
             try audioEngine?.start()
             result(true)
         } catch {
-            result(FlutterError(code: "audioWaveforms", message: "Failed to start recording", details: nil))
+            result(FlutterError(code: Constants.audioWaveforms, message: "Failed to start recording", details: error.localizedDescription))
         }
     }
     
@@ -224,5 +223,15 @@ public class AudioRecorder: NSObject, AVAudioRecorderDelegate{
         default:
             return Int(kAudioFormatMPEG4AAC)
         }
+    }
+    private func getDocumentDirectory(_ result: @escaping FlutterResult) -> String {
+        let directory = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
+        let ifExists = FileManager.default.fileExists(atPath: directory)
+        if(directory.isEmpty){
+            result(FlutterError(code: Constants.audioWaveforms, message: "The document directory path is empty", details: nil))
+        } else if(!ifExists) {
+            result(FlutterError(code: Constants.audioWaveforms, message: "The document directory does't exists", details: nil))
+        }
+        return directory
     }
 }

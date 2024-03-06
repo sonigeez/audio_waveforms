@@ -81,6 +81,12 @@ public class SwiftAudioWaveformsPlugin: NSObject, FlutterPlugin {
                 result(FlutterError(code: Constants.audioWaveforms, message: "Can not stop player", details: "Player key is null"))
             }
             break
+        case Constants.releasePlayer:
+            let key = args?[Constants.playerKey] as? String
+            if(key != nil){
+                audioPlayers[key!]?.release(result: result)
+            }
+            break;
         case Constants.seekTo:
             let key = args?[Constants.playerKey] as? String
             if(key != nil){
@@ -94,6 +100,13 @@ public class SwiftAudioWaveformsPlugin: NSObject, FlutterPlugin {
                 audioPlayers[key!]?.setVolume(args?[Constants.volume] as? Double,result)
             } else {
                 result(FlutterError(code: Constants.audioWaveforms, message: "Can not set volume", details: "Player key is null"))
+            }
+        case Constants.setRate:
+            let key = args?[Constants.playerKey] as? String
+            if(key != nil){
+                audioPlayers[key!]?.setRate(args?[Constants.rate] as? Double,result)
+            } else {
+                result(FlutterError(code: Constants.audioWaveforms, message: "Can not set rate", details: "Player key is null"))
             }
         case Constants.getDuration:
             let type = args?[Constants.durationType] as? Int
