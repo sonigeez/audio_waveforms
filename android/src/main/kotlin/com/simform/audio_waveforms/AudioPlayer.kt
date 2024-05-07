@@ -125,7 +125,7 @@ class AudioPlayer(
         }
     }
 
-    fun stop(result: MethodChannel.Result) {
+    fun stop(result: MethodChannel.Result,pauseAll : Boolean) {
         stopListening()
         if (playerListener != null) {
             player?.removeListener(playerListener!!)
@@ -133,7 +133,11 @@ class AudioPlayer(
         isPlayerPrepared = false
         player?.stop()
         player?.release()
-        result.success(true)
+        if(!pauseAll){
+            result.success(true)
+        }
+
+
     }
 
 
@@ -141,9 +145,15 @@ class AudioPlayer(
         try {
             stopListening()
             player?.pause()
-            result.success(true)
+
+                result.success(true)
+
+
         } catch (e: Exception) {
-            result.error(Constants.LOG_TAG, "Failed to pause the player", e.toString())
+
+                result.error(Constants.LOG_TAG, "Failed to pause the player", e.toString())
+
+
         }
 
     }
