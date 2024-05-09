@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
@@ -56,12 +57,14 @@ class AudioPlayer(
                                 player?.play()
                                 args[Constants.finishType] = 0
                             }
+
                             FinishMode.Pause -> {
                                 player?.seekTo(0)
                                 player?.playWhenReady = false
                                 stopListening()
                                 args[Constants.finishType] = 1
                             }
+
                             else -> {
                                 player?.stop()
                                 player?.release()
@@ -105,7 +108,7 @@ class AudioPlayer(
             player?.playWhenReady = true
             player?.play()
             result.success(true)
-            startListening(result)
+            startListening()
         } catch (e: Exception) {
             result.error(Constants.LOG_TAG, "Can not start the player", e.toString())
         }
@@ -125,7 +128,7 @@ class AudioPlayer(
         }
     }
 
-    fun stop(result: MethodChannel.Result,pauseAll : Boolean) {
+    fun stop(result: MethodChannel.Result, pauseAll: Boolean) {
         stopListening()
         if (playerListener != null) {
             player?.removeListener(playerListener!!)
@@ -133,7 +136,7 @@ class AudioPlayer(
         isPlayerPrepared = false
         player?.stop()
         player?.release()
-        if(!pauseAll){
+        if (!pauseAll) {
             result.success(true)
         }
 
@@ -146,12 +149,12 @@ class AudioPlayer(
             stopListening()
             player?.pause()
 
-                result.success(true)
+            result.success(true)
 
 
         } catch (e: Exception) {
 
-                result.error(Constants.LOG_TAG, "Failed to pause the player", e.toString())
+            result.error(Constants.LOG_TAG, "Failed to pause the player", e.toString())
 
 
         }
@@ -184,7 +187,7 @@ class AudioPlayer(
         }
     }
 
-    private fun startListening(result: MethodChannel.Result) {
+    private fun startListening() {
         runnable = object : Runnable {
             override fun run() {
                 val currentPosition = player?.currentPosition
@@ -195,7 +198,7 @@ class AudioPlayer(
                     methodChannel.invokeMethod(Constants.onCurrentDuration, args)
                     handler.postDelayed(this, updateFrequency.value)
                 } else {
-                    result.error(Constants.LOG_TAG, "Can't get current Position of player", "")
+                    Log.e(Constants.LOG_TAG, "Can't get current Position of player")
                 }
             }
         }
